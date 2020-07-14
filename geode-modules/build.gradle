@@ -150,11 +150,17 @@ tasks.test.dependsOn(moduleCopyTasks)
 dependencies {
   compile(platform(project(':boms:geode-all-bom')))
 
+  testCompile(group: 'junit', name: 'junit', version: '4.12')
+
   implementation(project(':geode-common-services'))
   implementation(project(':geode-common'))
   implementation('org.apache.commons:commons-lang3')
   implementation('org.apache.logging.log4j:log4j-api')
   implementation('org.jboss.modules:jboss-modules')
+  implementation('io.vavr:vavr:0.10.3')
+
+  testImplementation('org.apache.logging.log4j:log4j-core')
+  testImplementation('com.carrotsearch.randomizedtesting:randomizedtesting-runner')
   testImplementation('junit:junit')
   testCompile(project(":geode-core"))
   testImplementation('org.assertj:assertj-core')
