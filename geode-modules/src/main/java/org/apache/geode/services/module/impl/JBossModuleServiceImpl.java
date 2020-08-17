@@ -145,8 +145,10 @@ public class JBossModuleServiceImpl implements ModuleService {
       Iterator<T> loadedServices = module.loadService(service).iterator();
       while (loadedServices.hasNext()) {
         try {
-          result.add(loadedServices.next());
-          logDebug("Loaded service from module: " + module.getName());
+          T loadedService = loadedServices.next();
+          result.add(loadedService);
+          logDebug("Loaded service: " + loadedService.getClass().getName() + " from ClassLoader: "
+              + loadedService.getClass().getClassLoader() + " for module: " + module.getName());
         } catch (Error e) {
           logDebug("Trying to load service from module: " + module.getName());
           logError(e);

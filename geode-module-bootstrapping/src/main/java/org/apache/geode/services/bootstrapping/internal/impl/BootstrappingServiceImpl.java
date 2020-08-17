@@ -21,8 +21,10 @@ import static org.apache.geode.services.result.impl.Success.SUCCESS_TRUE;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.TreeSet;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
@@ -266,7 +268,8 @@ public class BootstrappingServiceImpl implements BootstrappingService {
         processDependentModulesFromManifestFile(jarFile, new ArrayList<>());
 
     if (loadedDependentModuleNamesResult.isSuccessful()) {
-      List<String> loadedDependentModuleNames = loadedDependentModuleNamesResult.getMessage();
+      Collection<String> loadedDependentModuleNames =
+          new TreeSet<>(loadedDependentModuleNamesResult.getMessage());
       registerAndLoadModuleForComponent(componentIdentifier, jarFile).ifSuccessful(success -> {
         loadedDependentModuleNames.add(componentIdentifier.getComponentName());
         updateGeodeModule(loadedDependentModuleNames).ifFailure(errorMessage -> {
@@ -315,7 +318,7 @@ public class BootstrappingServiceImpl implements BootstrappingService {
    * @param newlyRegisteredModules the updated list of modules to be linked against.
    * @return {@link Success} when the module is successfully updated and {@link Failure} on failure.
    */
-  private ServiceResult<Boolean> updateGeodeModule(List<String> newlyRegisteredModules) {
+  private ServiceResult<Boolean> updateGeodeModule(Collection<String> newlyRegisteredModules) {
     geodeModuleDescriptorBuilder.dependsOnModules(newlyRegisteredModules);
     ModuleDescriptor geodeModuleDescriptor = geodeModuleDescriptorBuilder.build();
     return moduleService.unloadModule(geodeModuleDescriptorBuilder.getName())

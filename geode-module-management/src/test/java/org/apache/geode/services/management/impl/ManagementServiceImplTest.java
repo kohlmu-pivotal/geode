@@ -42,6 +42,7 @@ public class ManagementServiceImplTest {
   private static BootstrappingService bootstrappingService;
   private static ModuleService moduleService;
   private static ComponentManagementService componentManagementService;
+  private static final String APPLICATION_NAME = "App1";
 
   @Before
   public void setup() {
@@ -52,7 +53,10 @@ public class ManagementServiceImplTest {
     bootstrappingService = Mockito.mock(BootstrappingService.class);
     when(bootstrappingService.getModuleService()).thenReturn(moduleService);
 
-    managementService = new ManagementServiceImpl(bootstrappingService, LogManager.getLogger());
+    managementService = new ManagementServiceImpl(LogManager.getLogger());
+
+    managementService.createApp(APPLICATION_NAME, bootstrappingService);
+
   }
 
   @Test
@@ -66,7 +70,9 @@ public class ManagementServiceImplTest {
     when(componentManagementService.init(any(), any())).thenReturn(Success.SUCCESS_TRUE);
 
     ComponentIdentifier componentIdentifier = new ComponentIdentifier("TestComponent");
-    assertThat(managementService.createComponent(componentIdentifier).isSuccessful()).isTrue();
+    assertThat(managementService.createComponent(APPLICATION_NAME, "Instance1", componentIdentifier)
+        .isSuccessful())
+            .isTrue();
   }
 
   @Test
@@ -76,7 +82,9 @@ public class ManagementServiceImplTest {
     when(moduleService.loadService(any())).thenReturn(Success.of(Collections.emptySet()));
 
     ComponentIdentifier componentIdentifier = new ComponentIdentifier("TestComponent");
-    ServiceResult<Boolean> serviceResult = managementService.createComponent(componentIdentifier);
+    ServiceResult<Boolean> serviceResult =
+        managementService.createComponent(APPLICATION_NAME, "Instance1",
+            componentIdentifier);
     assertThat(serviceResult.isFailure()).isTrue();
     assertThat(serviceResult.getErrorMessage())
         .isEqualTo("Could not find ComponentManagementService for component: TestComponent");
@@ -92,7 +100,9 @@ public class ManagementServiceImplTest {
     when(componentManagementService.canCreateComponent(any())).thenReturn(false);
 
     ComponentIdentifier componentIdentifier = new ComponentIdentifier("TestComponent");
-    ServiceResult<Boolean> serviceResult = managementService.createComponent(componentIdentifier);
+    ServiceResult<Boolean> serviceResult =
+        managementService.createComponent(APPLICATION_NAME, "Instance1",
+            componentIdentifier);
     assertThat(serviceResult.isFailure()).isTrue();
     assertThat(serviceResult.getErrorMessage())
         .isEqualTo("Could not find ComponentManagementService for component: TestComponent");
@@ -110,7 +120,9 @@ public class ManagementServiceImplTest {
         .thenReturn(Failure.of("We want to see this failure message"));
 
     ComponentIdentifier componentIdentifier = new ComponentIdentifier("TestComponent");
-    ServiceResult<Boolean> serviceResult = managementService.createComponent(componentIdentifier);
+    ServiceResult<Boolean> serviceResult =
+        managementService.createComponent(APPLICATION_NAME, "Instance1",
+            componentIdentifier);
     assertThat(serviceResult.isFailure()).isTrue();
     assertThat(serviceResult.getErrorMessage()).isEqualTo("We want to see this failure message");
   }
@@ -126,9 +138,13 @@ public class ManagementServiceImplTest {
     when(componentManagementService.init(any(), any())).thenReturn(Success.of(true));
 
     ComponentIdentifier componentIdentifier = new ComponentIdentifier("TestComponent");
-    assertThat(managementService.createComponent(componentIdentifier).isSuccessful()).isTrue();
+    assertThat(managementService.createComponent(APPLICATION_NAME, "Instance1", componentIdentifier)
+        .isSuccessful())
+            .isTrue();
 
-    ServiceResult<Boolean> serviceResult2 = managementService.createComponent(componentIdentifier);
+    ServiceResult<Boolean> serviceResult2 =
+        managementService.createComponent(APPLICATION_NAME, "Instance1",
+            componentIdentifier);
 
     assertThat(serviceResult2.isFailure()).isTrue();
     assertThat(serviceResult2.getErrorMessage())
@@ -137,7 +153,8 @@ public class ManagementServiceImplTest {
 
   @Test
   public void createWithNullComponentIdentifier() {
-    ServiceResult<Boolean> serviceResult = managementService.createComponent(null);
+    ServiceResult<Boolean> serviceResult =
+        managementService.createComponent(APPLICATION_NAME, "Instance1", null);
     assertThat(serviceResult.isFailure()).isTrue();
     assertThat(serviceResult.getErrorMessage()).isEqualTo("Component Identifier cannot be null");
   }
@@ -154,8 +171,12 @@ public class ManagementServiceImplTest {
     when(componentManagementService.close(any())).thenReturn(Success.of(true));
 
     ComponentIdentifier componentIdentifier = new ComponentIdentifier("TestComponent");
-    assertThat(managementService.createComponent(componentIdentifier).isSuccessful()).isTrue();
-    assertThat(managementService.closeComponent(componentIdentifier).isSuccessful()).isTrue();
+    assertThat(managementService.createComponent(APPLICATION_NAME, "Instance1", componentIdentifier)
+        .isSuccessful())
+            .isTrue();
+    assertThat(managementService.closeComponent(APPLICATION_NAME, "Instance1", componentIdentifier)
+        .isSuccessful())
+            .isTrue();
   }
 
   @Test
@@ -169,18 +190,23 @@ public class ManagementServiceImplTest {
     when(componentManagementService.init(any(), any())).thenReturn(Success.of(true));
 
     assertThat(
-        managementService.createComponent(new ComponentIdentifier("TestComponent")).isSuccessful())
-            .isTrue();
+        managementService.createComponent(APPLICATION_NAME, "Instance1",
+            new ComponentIdentifier("TestComponent"))
+            .isSuccessful())
+                .isTrue();
     ServiceResult<Boolean> serviceResult =
-        managementService.closeComponent(new ComponentIdentifier("TestComponent2"));
+        managementService.closeComponent(APPLICATION_NAME, "Instance1",
+            new ComponentIdentifier("TestComponent2"));
     assertThat(serviceResult.isSuccessful()).isTrue();
   }
 
   @Test
   public void destroyComponentWhichDoesNotExist2() {
     assertThat(
-        managementService.closeComponent(new ComponentIdentifier("TestComponent")).isSuccessful())
-            .isTrue();
+        managementService
+            .closeComponent(APPLICATION_NAME, "Instance1", new ComponentIdentifier("TestComponent"))
+            .isSuccessful())
+                .isTrue();
   }
 
   @Test
@@ -197,11 +223,14 @@ public class ManagementServiceImplTest {
         .thenReturn(Failure.of("Underlying Component destroy failure"));
 
     assertThat(
-        managementService.createComponent(new ComponentIdentifier("TestComponent")).isSuccessful())
-            .isTrue();
+        managementService.createComponent(APPLICATION_NAME, "Instance1",
+            new ComponentIdentifier("TestComponent"))
+            .isSuccessful())
+                .isTrue();
 
     ServiceResult<Boolean> serviceResult =
-        managementService.closeComponent(new ComponentIdentifier("TestComponent"));
+        managementService.closeComponent(APPLICATION_NAME, "Instance1",
+            new ComponentIdentifier("TestComponent"));
 
     assertThat(serviceResult.getErrorMessage()).isEqualTo("Underlying Component destroy failure");
   }
