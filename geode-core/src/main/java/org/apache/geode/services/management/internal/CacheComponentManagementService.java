@@ -55,7 +55,7 @@ import org.apache.geode.services.result.impl.Failure;
 public class CacheComponentManagementService implements ComponentManagementService<Cache> {
 
   private static final long serialVersionUID = 15L;
-  private static final String CACHE = "Cache15";
+  private static final String CACHE = "Cache";
   private Cache cache;
   private Logger logger;
 

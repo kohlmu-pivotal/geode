@@ -19,6 +19,8 @@ import static org.apache.geode.services.result.impl.Success.SUCCESS_TRUE;
 
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -138,15 +140,18 @@ public class JBossModuleServiceImpl implements ModuleService {
    */
   @Override
   public <T> ServiceResult<Set<T>> loadService(Class<T> service) {
-    Set<T> result = createTreeSetWithClassLoaderComparator();
+    // Set<T> result = createTreeSetWithClassLoaderComparator();
+    Map<String, T> result = new HashMap<>();
 
     // Iterate over all the modules looking for implementations of service.
     modules.values().forEach((module) -> {
-      Iterator<T> loadedServices = module.loadService(service).iterator();
+      Iterator<T> loadedServices = module.loadServiceDirectly(service).iterator();
       while (loadedServices.hasNext()) {
         try {
           T loadedService = loadedServices.next();
-          result.add(loadedService);
+          if (!result.containsKey(loadedService.getClass().getName())) {
+            result.put(loadedService.getClass().getName(), loadedService);
+          }
           logDebug("Loaded service: " + loadedService.getClass().getName() + " from ClassLoader: "
               + loadedService.getClass().getClassLoader() + " for module: " + module.getName());
         } catch (Error e) {
@@ -156,7 +161,7 @@ public class JBossModuleServiceImpl implements ModuleService {
       }
     });
 
-    return Success.of(result);
+    return Success.of(new HashSet<>(result.values()));
   }
 
   /**

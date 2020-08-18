@@ -53,7 +53,7 @@ public class Dependencies {
     graph.addAttribute("ui.stylesheet", "node { fill-mode: dyn-plain;fill-color: green, red; }");
 
     String rootPath =
-        "/Users/ukohlmeyer/projects/geode/geode-assembly/build/install/apache-geode/lib";
+        "/Users/patrickjohnson/projects/geode/geode-assembly/build/install/apache-geode/lib";
 
     String version = "1.14.0-build.0";
 

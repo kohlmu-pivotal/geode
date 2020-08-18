@@ -104,4 +104,5 @@ buildCache {
     enabled = true
   }
 }
+include 'geode-component-test'
 

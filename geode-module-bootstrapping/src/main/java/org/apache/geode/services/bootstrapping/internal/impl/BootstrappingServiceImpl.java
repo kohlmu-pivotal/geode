@@ -20,10 +20,9 @@ import static org.apache.geode.services.result.impl.Success.SUCCESS_TRUE;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
@@ -112,14 +111,14 @@ public class BootstrappingServiceImpl implements BootstrappingService {
 
   /**
    * Processes and registers all modules required by the given {@link JarFile} and adds them to the
-   * {@link List} of registered modules.
+   * {@link Set} of registered modules.
    *
    * @param jarFile the {@link JarFile} to process the dependent modules of.
-   * @param registeredModules a {@link List} of the names of all the currently registered modules.
-   * @return {@link Success} containing an updated {@link List} of all registered modules.
+   * @param registeredModules a {@link Set} of the names of all the currently registered modules.
+   * @return {@link Success} containing an updated {@link Set} of all registered modules.
    */
-  private ServiceResult<List<String>> processDependentModulesFromManifestFile(
-      JarFile jarFile, List<String> registeredModules) {
+  private ServiceResult<Set<String>> processDependentModulesFromManifestFile(
+      JarFile jarFile, Set<String> registeredModules) {
 
     // Get list of dependent modules names from manifest file
     ServiceResult<String[]> dependentModulesFromJarFile =
@@ -138,9 +137,11 @@ public class BootstrappingServiceImpl implements BootstrappingService {
           if (registerModuleResult.isFailure()) {
             return Failure.of(registerModuleResult.getErrorMessage());
           }
-          ServiceResult<List<String>> processDependentModule =
+          ServiceResult<Set<String>> processDependentModule =
               processDependentModule(jarPathLookupResult.getMessage(), registeredModules);
-          if (processDependentModule.isFailure()) {
+          if (processDependentModule.isSuccessful()) {
+            // moduleService.loadModule(new ModuleDescriptor.Builder(moduleName).build());
+          } else {
             return Failure.of(processDependentModule.getErrorMessage());
           }
         } else {
@@ -163,7 +164,7 @@ public class BootstrappingServiceImpl implements BootstrappingService {
    *        module to be registered.
    * @return {@link Success} upon registering the module and {@link Failure} on failure.
    */
-  private ServiceResult<Boolean> registerModule(List<String> registeredModules,
+  private ServiceResult<Boolean> registerModule(Set<String> registeredModules,
       String moduleName, ServiceResult<String> jarPathLookupResult) {
     ModuleDescriptor moduleDescriptor = new ModuleDescriptor.Builder(moduleName)
         .fromResourcePaths(jarPathLookupResult.getMessage())
@@ -213,8 +214,8 @@ public class BootstrappingServiceImpl implements BootstrappingService {
    * @return {@link Success} containing an updated {@link List} of registered modules or
    *         {@link Failure} on failure.
    */
-  private ServiceResult<List<String>> processDependentModule(
-      String path, List<String> registeredModules) {
+  private ServiceResult<Set<String>> processDependentModule(
+      String path, Set<String> registeredModules) {
     try {
       return processDependentModulesFromManifestFile(
           new JarFile(path), registeredModules);
@@ -264,18 +265,20 @@ public class BootstrappingServiceImpl implements BootstrappingService {
       return Failure.of(e);
     }
 
-    ServiceResult<List<String>> loadedDependentModuleNamesResult =
-        processDependentModulesFromManifestFile(jarFile, new ArrayList<>());
+    ServiceResult<Set<String>> loadedDependentModuleNamesResult =
+        processDependentModulesFromManifestFile(jarFile, new TreeSet<>());
 
     if (loadedDependentModuleNamesResult.isSuccessful()) {
-      Collection<String> loadedDependentModuleNames =
-          new TreeSet<>(loadedDependentModuleNamesResult.getMessage());
+      Set<String> loadedDependentModuleNames = loadedDependentModuleNamesResult.getMessage();
       registerAndLoadModuleForComponent(componentIdentifier, jarFile).ifSuccessful(success -> {
         loadedDependentModuleNames.add(componentIdentifier.getComponentName());
         updateGeodeModule(loadedDependentModuleNames).ifFailure(errorMessage -> {
           throw new IllegalStateException(errorMessage);
         });
       });
+
+      loadedDependentModuleNames.forEach(
+          moduleName -> moduleService.loadModule(new ModuleDescriptor.Builder(moduleName).build()));
       return SUCCESS_TRUE;
     } else {
       return Failure.of(loadedDependentModuleNamesResult.getErrorMessage());
@@ -318,7 +321,7 @@ public class BootstrappingServiceImpl implements BootstrappingService {
    * @param newlyRegisteredModules the updated list of modules to be linked against.
    * @return {@link Success} when the module is successfully updated and {@link Failure} on failure.
    */
-  private ServiceResult<Boolean> updateGeodeModule(Collection<String> newlyRegisteredModules) {
+  private ServiceResult<Boolean> updateGeodeModule(Set<String> newlyRegisteredModules) {
     geodeModuleDescriptorBuilder.dependsOnModules(newlyRegisteredModules);
     ModuleDescriptor geodeModuleDescriptor = geodeModuleDescriptorBuilder.build();
     return moduleService.unloadModule(geodeModuleDescriptorBuilder.getName())

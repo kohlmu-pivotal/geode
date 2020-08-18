@@ -48,7 +48,8 @@ def dependentProjectNames = [
         ':geode-tcp-server',
         ':geode-wan',
         ':geode-module-management',
-        ':geode-module-bootstrapping'
+        ':geode-module-bootstrapping',
+        ':geode-component-test'
 ]
 
 // These other dependencies are explicitly referenced throughout other copySpec
@@ -507,7 +508,8 @@ tasks.register('geodeDepsJar', Jar) {
   def modulesToRemove = ["geode-common-services",
                          "geode-module-bootstrapping",
                          "geode-modules",
-                         "geode-module-management"]
+                         "geode-module-management",
+                         "geode-component-test"]
 
   inputs.files {
     configureDepsJar
