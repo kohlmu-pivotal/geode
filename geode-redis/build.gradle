@@ -34,6 +34,7 @@ dependencies {
   implementation(project(':geode-logging'))
   implementation(project(':geode-core'))
   implementation(project(':geode-gfsh'))
+  implementation(project(':geode-common'))
   implementation('com.github.davidmoten:geo')
   implementation('io.netty:netty-all')
   implementation('commons-codec:commons-codec')
@@ -64,7 +65,6 @@ dependencies {
   acceptanceTestImplementation(project(':geode-junit'))
   acceptanceTestImplementation('redis.clients:jedis')
   acceptanceTestImplementation('org.testcontainers:testcontainers')
-  acceptanceTestRuntime(project(':geode-log4j'))
   acceptanceTestImplementation('org.springframework.boot:spring-boot-starter-web') {
     exclude module: 'spring-boot-starter-tomcat'
   }

@@ -1,0 +1,201 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+import groovy.xml.MarkupBuilder
+import org.gradle.util.CollectionUtils
+
+// Projects that do not need module.xml files generated for them. Mostly testing code, projects that
+// do not generate jars, and geode-deployment-legacy.
+ext.projectsToExclude = ["geode-pulse", "extensions", "geode-assembly", "geode-assembly-test", "geode-concurrency-test",
+                         "geode-experimental-driver", "geode-jmh", "geode-lucene-test", "geode-modules-assembly",
+                         "geode-modules-test", "geode-protobuf-test", "geode-pulse-test", "pmd-rules",
+                         "static-analysis", "geode-dunit", "geode-old-versions", "geode-junit",
+                         "geode-deployment-legacy", "geode-modules", "geode-modules-session",
+                         "geode-modules-session-internal", "geode-modules-tomcat7",
+                         "geode-modules-tomcat8", "geode-modules-tomcat9", "session-testing-war",
+                         "geode-client-bom", "geode-web", "geode-web-management", "geode-web-api",
+                         "geode-all-bom", "geode-jboss-extensions"]
+
+ext.generateModuleXmlForProject = { File jar, Project projectToUse ->
+  def apiProjectDeps = getDependentProjectsForConfiguration(projectToUse, ['api'])
+  def allProjectDeps = getDependentProjectsForConfiguration(projectToUse, ['implementation', 'runtimeOnly'])
+  def jbossDeps = getDependentProjectsForConfiguration(projectToUse, ['jbossModular'])
+
+  allProjectDeps.addAll(apiProjectDeps)
+  allProjectDeps.addAll(jbossDeps)
+  // Iterate over runtime classpath dependencies and separate project dependencies from library
+  // dependencies.
+  def (projectDependencies, runtimeList) = generateDependentProjects(allProjectDeps)
+
+  def depsToNotGenerate = allProjectDeps.stream().filter { it.ext.has('should-not-generate') }.map { it.name }.collect()
+
+  def sourceJarPath = null
+  if (jar != null && jar.name.endsWith(".jar")) {
+    sourceJarPath = "lib/${jar.name}"
+  }
+
+  def moduleName = projectToUse.name
+  def moduleVersion = version
+  def geodeAssemblyProj = project(":geode-assembly")
+  def moduleDescriptorsRoot = "${geodeAssemblyProj.buildDir}/moduleDescriptors"
+  Map<String, String[]> namesAndVersion = new HashMap<>()
+  runtimeList.each { resource ->
+    def endOfArtifactName = resource.lastIndexOf("-")
+    def startOfExtension = resource.indexOf(".jar")
+    def artifactName = resource.substring(0, endOfArtifactName)
+    def artifactVersion = resource.substring(endOfArtifactName + 1, startOfExtension)
+    namesAndVersion.put(artifactName, [artifactVersion, resource])
+    if (!depsToNotGenerate.contains(artifactName)) {
+      writeModuleXml(artifactName, artifactVersion, moduleDescriptorsRoot, "thirdParty", "lib/$resource", [], [], null)
+    }
+  }
+
+  allProjectDeps = CollectionUtils.sort(allProjectDeps, new Comparator<Object>() {
+    @Override
+    int compare(Object o1, Object o2) {
+      if (o1 != null && o2 != null) {
+        return o1.name.toLowerCase() <=> o2.name.toLowerCase()
+      }
+      return 0
+    }
+  })
+  writeModuleXml(moduleName, moduleVersion, moduleDescriptorsRoot, "main", sourceJarPath, allProjectDeps, apiProjectDeps, namesAndVersion)
+}
+
+def generateDependentProjects(List<String> allProjectDeps) {
+  def runtimeList = []
+  def projectDependencies = []
+  allProjectDeps.each { dependency ->
+    if (dependency instanceof ProjectDependency) {
+      if (!projectsToExclude.contains(dependency.name)) {
+        def platformAttribute = Attribute.of("org.gradle.category", Category.class)
+        def foundAttribute = dependency.attributes.getAttribute(platformAttribute)
+        if (foundAttribute == null || 'platform' == foundAttribute.name) {
+          projectDependencies.add(dependency)
+        }
+      }
+    } else {
+      project.configurations.each {
+        if (it.name == 'runtimeClasspath' || it.name == 'jbossModular') {
+          it.files(dependency).each { depJar ->
+            runtimeList.add(depJar.name)
+          }
+        }
+      }
+    }
+  }
+
+  return [projectDependencies, runtimeList.unique().sort()]
+}
+
+def static getDependentProjectsForConfiguration(Project projectToUse, List<String> configuration) {
+  def allProjectDeps = []
+  configuration.each { configName ->
+    projectToUse.configurations.each {
+      if (it.name == configName) {
+        allProjectDeps.addAll(it.getDependencies())
+      }
+    }
+  }
+  return allProjectDeps
+}
+
+def static moduleNameToPath(String moduleName) {
+  return moduleName.replace('.', File.separator)
+}
+
+def writeModuleXml(moduleName, moduleVersion, moduleXMLRootPath,
+                   moduleClassification, sourceJarPath, projectDependencies,
+                   apiProjectDeps, namesAndVersions) {
+  if (!projectsToExclude.contains(moduleName)) {
+    def moduleNamePath = moduleNameToPath(moduleName)
+
+    if (moduleClassification == "main") {
+      def aliasModulePath = "$moduleXMLRootPath/$moduleClassification/$moduleNamePath/main"
+      mkdir(aliasModulePath)
+      file("$aliasModulePath/module.xml").withWriter { writer ->
+        // Create MarkupBuilder with 4 space indent
+        def xml = new MarkupBuilder(new IndentPrinter(writer, "    ", true))
+
+        xml.doubleQuotes = true
+        xml.mkp.xmlDeclaration(version: '1.0', encoding: 'utf-8')
+
+        xml.'module-alias'('xmlns': 'urn:jboss:module:1.9', 'name': "$moduleNamePath", 'target-name': "$moduleNamePath:$version")
+      }
+    }
+
+    def modulePath = "$moduleXMLRootPath/$moduleClassification/$moduleNamePath/$moduleVersion"
+    mkdir(modulePath)
+
+    file("$modulePath/module.xml").withWriter { writer ->
+      // Create MarkupBuilder with 4 space indent
+      def xml = new MarkupBuilder(new IndentPrinter(writer, "    ", true))
+
+      xml.doubleQuotes = true
+      xml.mkp.xmlDeclaration(version: '1.0', encoding: 'utf-8')
+
+      xml.'module'('xmlns': 'urn:jboss:module:1.9', 'name': "$moduleName:$moduleVersion") {
+        xml.'resources' {
+          if (sourceJarPath != null) {
+            def absolutePathPrefix = "../../../"
+            for (int i = 0; i < moduleNamePath.split(File.separator).length; i++) {
+              absolutePathPrefix = absolutePathPrefix.concat("../")
+            }
+            xml.'resource-root'(['path': absolutePathPrefix + sourceJarPath])
+            projectDependencies.stream().filter { it.ext.has('should-not-generate') }.each { resourceName ->
+              xml.'resource-root'(['path': absolutePathPrefix + 'lib/' + namesAndVersions[resourceName.name][1]])
+            }
+          }
+        }
+        if (moduleName == 'geode-core') {
+          xml.'main-class'(['name': 'org.apache.geode.distributed.ServerLauncher'])
+        }
+        xml.'dependencies' {
+
+          xml.'module'(['name': "java.se"])
+
+          if (moduleClassification == "thirdParty") {
+            xml.'module'(['name': "thirdParty", 'services': 'export', 'export': 'true'])
+          }
+          if (moduleName == 'geode-core') {
+            xml.'module'(['name': "linking", 'services': 'import'])
+          }
+
+          projectDependencies.each { project ->
+            if (!projectsToExclude.contains(project.name) && !project.ext.has('should-not-generate')) {
+              String projectVersion = project.version
+              if (projectVersion == null) {
+                projectVersion = namesAndVersions[project.name][0]
+              }
+              def projectNameAndVersion = project.name.contains("geode-") ? project.name : "$project.name:$projectVersion"
+              def attributes = ['name': "${projectNameAndVersion.toString()}"]
+              if (project.ext.has('optional')) {
+                attributes.put('optional', project.ext.optional)
+              }
+              if (apiProjectDeps.contains(project)) {
+                attributes.put('services', 'export')
+                attributes.put('export', 'true')
+              } else {
+                attributes.put('services', 'import')
+              }
+              xml.'module'(attributes)
+            }
+          }
+        }
+      }
+    }
+  }
+}

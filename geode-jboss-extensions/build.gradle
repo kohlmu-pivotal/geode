@@ -21,8 +21,8 @@ apply from: "${rootDir}/${scriptDir}/standard-subproject-configuration.gradle"
 
 apply from: "${project.projectDir}/../gradle/publish-java.gradle"
 
-
 dependencies {
-    implementation(platform(project(':boms:geode-all-bom')))
-    compileOnly('org.jboss.modules:jboss-modules:' + DependencyConstraints.get("jboss-modules.version"))
+    api(platform(project(':boms:geode-all-bom')))
+    compileOnly(platform(project(':boms:geode-all-bom')))
+    compileOnly('org.jboss.modules:jboss-modules')
 }

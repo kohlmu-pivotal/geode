@@ -34,9 +34,8 @@ dependencies {
   //transitive dependencies from geode-web.war. Since geode-web.war is ony run within
   //a container that has geode-core on the classpath, is prevents duplicating jars. geode-core
   //in particular should not be duplicated in the war.
-  providedCompile(project(':geode-logging'))
-  providedCompile(project(':geode-serialization'))
-  providedCompile(project(':geode-gfsh')) {
+  providedCompile(project(':geode-common'))
+  providedCompile(project(':geode-core')){
     exclude module: 'spring-web'
     exclude module: 'spring-core'
     exclude module: 'spring-jcl'
@@ -46,9 +45,16 @@ dependencies {
     exclude module: 'spring-context'
     exclude module: 'spring-expression'
   }
+  providedCompile(project(':geode-logging'))
+  providedCompile(project(':geode-serialization'))
+  providedCompile(project(':geode-gfsh')) {
+    exclude module: 'spring-web'
+    exclude module: 'spring-core'
+  }
 
   providedCompile(platform(project(':boms:geode-all-bom')))
   providedCompile('javax.servlet:javax.servlet-api')
+  providedCompile('org.apache.logging.log4j:log4j-api')
 
   implementation('org.springframework:spring-webmvc')
   implementation('org.apache.commons:commons-lang3')

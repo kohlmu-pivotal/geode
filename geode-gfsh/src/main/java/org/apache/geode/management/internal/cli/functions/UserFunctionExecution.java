@@ -222,12 +222,10 @@ public class UserFunctionExecution implements InternalFunction<Object[]> {
       if (results != null) {
         for (Object resultObj : results) {
           if (resultObj != null) {
-            if (resultObj instanceof Exception) {
-              resultMessage.add(((Exception) resultObj).getMessage());
+            if (resultObj instanceof Throwable) {
               functionSuccess = false;
-            } else {
-              resultMessage.add(resultObj.toString());
             }
+            resultMessage.add(resultObj.toString());
           }
         }
       }
